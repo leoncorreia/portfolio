@@ -41,14 +41,21 @@ settings = get_settings()
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 _cors_rx = (settings.cors_origin_regex or "").strip()
 
+# allow_credentials=False: browser fetch() does not send cookies to the API; avoids stricter CORS rules.
 _cors_kw: dict = {
     "allow_origins": origins,
-    "allow_credentials": True,
+    "allow_credentials": False,
     "allow_methods": ["*"],
     "allow_headers": ["*"],
 }
 if _cors_rx:
     _cors_kw["allow_origin_regex"] = _cors_rx
+
+logger.info(
+    "CORS: %s origin(s); regex=%s",
+    len(origins),
+    "set" if _cors_rx else "none",
+)
 
 app = FastAPI(
     title="FPL AI Co-Manager",

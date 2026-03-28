@@ -5,6 +5,11 @@ const JSON_HEADERS = { "Content-Type": "application/json" };
 /** Production: set `VITE_API_URL` on Vercel to your hosted API origin (no trailing slash). Dev: unset → same-origin `/api` via Vite proxy. */
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
+/** True if this production build forgot to set `VITE_API_URL` (requests would go to the wrong host). */
+export function isProductionApiUrlMissing(): boolean {
+  return Boolean(import.meta.env.PROD && !String(import.meta.env.VITE_API_URL ?? "").trim());
+}
+
 function apiUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
   return `${API_BASE}${p}`;

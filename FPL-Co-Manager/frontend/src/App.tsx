@@ -13,7 +13,13 @@ import { MemoryCard } from "./components/MemoryCard";
 import { RecommendationSummaryCard } from "./components/RecommendationSummaryCard";
 import { TransferCard } from "./components/TransferCard";
 import { useStableUserId } from "./hooks/useStableUserId";
-import { analyzeTeam, getDemoHints, getMemory, importTeam } from "./services/api";
+import {
+  analyzeTeam,
+  getDemoHints,
+  getMemory,
+  importTeam,
+  isProductionApiUrlMissing,
+} from "./services/api";
 import type {
   AnalyzeTeamResponse,
   MemoryRecordOut,
@@ -146,6 +152,13 @@ export default function App() {
 
   return (
     <AppLayout>
+      <ErrorBanner
+        message={
+          isProductionApiUrlMissing()
+            ? "This deployment has no VITE_API_URL. In Vercel → Project → Settings → Environment Variables, set VITE_API_URL to your Render API origin (https://….onrender.com, no trailing slash), save, then Redeploy."
+            : null
+        }
+      />
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
       <LoadingOverlay show={loading} label={loadingLabel} />
 
