@@ -23,3 +23,8 @@
 /collabhub/frontend/dist/
 /collabhub/frontend/.env
 /collabhub/.env
+
+# --- FPL-Co-Manager ---
+/FPL-Co-Manager/backend/.env
+/FPL-Co-Manager/frontend/.env
+/FPL-Co-Manager/frontend/.env.local
