@@ -1,5 +1,6 @@
 """Application settings loaded from environment variables."""
 
+import os
 from pathlib import Path
 
 from pydantic import model_validator
@@ -72,6 +73,14 @@ class Settings(BaseSettings):
             "dify_input_bundle",
             bundle.strip() if isinstance(bundle, str) else str(bundle).strip(),
         )
+
+        # Serverless (Vercel) filesystem is read-only except /tmp.
+        # If using SQLite with a relative path, rewrite to a writable location.
+        if os.getenv("VERCEL") or os.getenv("VERCEL_ENV"):
+            url = str(getattr(self, "database_url", "") or "")
+            if url.startswith("sqlite:///./") or url == "sqlite:///./fpl_comanager.db":
+                self.database_url = "sqlite:////tmp/fpl_comanager.db"
+
         return self
 
 
