@@ -1,14 +1,17 @@
-# Render Blueprint — API only (recommended with Vercel for the UI).
-# https://render.com/docs/blueprint-spec
+# Render Blueprint — full stack on Render (API + static frontend).
+# Docs: https://render.com/docs/blueprint-spec
 #
-# Set CORS_ORIGINS in the dashboard to your Vercel URL, e.g.
-# https://sceneproof.vercel.app
+# After first deploy:
+# 1) Set sceneproof-web.VITE_API_BASE_URL = sceneproof-api URL (no trailing slash)
+# 2) Set sceneproof-api.CORS_ORIGINS = sceneproof-web URL (and localhost if desired)
+# 3) Redeploy both services once
 
 services:
   - type: web
     name: sceneproof-api
     runtime: python
-    plan: free
+    # You have credits; Starter avoids free-tier cold starts.
+    plan: starter
     region: oregon
     rootDir: backend
     buildCommand: pip install -r requirements.txt
@@ -16,4 +19,24 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: CORS_ORIGINS
+        sync: false
+      - key: DATA_DIR
+        value: /var/data
+      - key: DEMO_MODE
+        value: true
+    disk:
+      name: sceneproof-data
+      mountPath: /var/data
+      sizeGB: 10
+
+  - type: web
+    name: sceneproof-web
+    runtime: static
+    plan: free
+    region: oregon
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
         sync: false

@@ -56,49 +56,46 @@ npm run dev
 
 Open `http://localhost:5173`. The Vite dev server proxies `/api` and `/media` to the backend.
 
-### Hackathon deploy (what judges open)
+### Hackathon deploy on Render (recommended for your credits)
 
-Use **one public URL** for the app (the frontend). The UI talks to the API using `VITE_API_BASE_URL` (see `frontend/src/lib/apiBase.ts`). **Vercel + Render** is the simplest split:
+This repo already includes a Render Blueprint at `SceneProof/render.yaml` that creates:
 
-| Piece | Platform | Why |
-| --- | --- | --- |
-| **Frontend** | [Vercel](https://vercel.com) | Native Vite/React hosting, free tier, fast CDN. |
-| **Backend** | [Render](https://render.com) | Long-lived Python process, file uploads, background jobs (free tier sleeps after ~15 min — first request can take ~30s). |
+- `sceneproof-api` (FastAPI, **Starter** plan, persistent disk)
+- `sceneproof-web` (static frontend)
 
-**1. Push the repo to GitHub** (judges and deploy hooks need a remote).
+#### One-time deploy steps
 
-**2. Deploy the API on Render**
+1. In Render dashboard: **New → Blueprint**
+2. Connect repo: [`https://github.com/leoncorreia/portfolio`](https://github.com/leoncorreia/portfolio)
+3. Set **Blueprint path** to: `SceneProof/render.yaml`
+4. Click **Apply**
 
-- **New → Web Service**, connect the repo.
-- **Root directory:** `backend`
-- **Build command:** `pip install -r requirements.txt`
-- **Start command:** `python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- **Health check path:** `/api/health`
-- **Environment → Environment variables:**
-  - `CORS_ORIGINS` = your Vercel URL once you have it (e.g. `https://sceneproof.vercel.app`). You can add `http://localhost:5173` too, comma-separated.
-  - Optional: copy keys from `.env.example` for live providers.
+Render will provision both services and assign `*.onrender.com` URLs.
 
-Copy the service URL (e.g. `https://sceneproof-api.onrender.com`).
+#### Wire environment values after first deploy
 
-**Optional:** **New → Blueprint** and point Render at this repo’s `render.yaml` (defines the same API service; you still set `CORS_ORIGINS` in the dashboard).
+After URLs exist, set these service env vars in Render:
 
-**3. Deploy the frontend on Vercel**
+- On **sceneproof-web**:
+  - `VITE_API_BASE_URL=https://<sceneproof-api>.onrender.com`
+- On **sceneproof-api**:
+  - `CORS_ORIGINS=https://<sceneproof-web>.onrender.com,http://localhost:5173`
 
-- **Add New → Project**, import the same repo.
-- **Root Directory:** `frontend`
-- **Framework preset:** Vite (auto).
-- **Environment variables → Production:**
-  - `VITE_API_BASE_URL` = your Render API URL **with no trailing slash** (e.g. `https://sceneproof-api.onrender.com`).
+Then redeploy both services once.
 
-Redeploy the frontend after changing env vars (Vite bakes `VITE_*` at build time).
+#### Why this setup
 
-**4. Finish CORS**
+- `sceneproof-api` runs on **Starter**, so no free-tier sleep/cold starts during demos.
+- API data persists to Render disk (`/var/data`) because `DATA_DIR=/var/data` is configured.
+- `DEMO_MODE=true` is set by default in the blueprint, so the app works end-to-end even without real provider keys.
 
-If the UI loads but API calls fail with CORS errors, update Render’s `CORS_ORIGINS` to exactly your Vercel origin (scheme + host, no path), save, and let Render redeploy.
+#### Optional live provider keys
 
-**What you submit:** the **Vercel production URL** (and optionally the Render API URL + GitHub repo in the form).
+To use real Seed/OmniHuman APIs, add keys/base URLs from `.env.example` to **sceneproof-api** env vars and set `DEMO_MODE=false`.
 
-**All on Render instead:** you can add a second Render **Static Site** pointed at `frontend` with build `npm install && npm run build` and publish directory `dist`, setting `VITE_API_BASE_URL` in that service’s environment before build — same idea as Vercel.
+#### What to submit
+
+Submit the **sceneproof-web Render URL** to judges (plus repo URL if requested).
 
 ### Production-ish frontend build
 
