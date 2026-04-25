@@ -1,11 +1,33 @@
-cat <<EOT >> .gitignore
-# Environments
+# Environment files
 .env
+.venv/
+venv/
+env/
 
-# Python
+# Python cache/build artifacts
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
 
-# Airflow Logs
+# Airflow and local runtime state
 logs/
-EOT
+plugins/
+airflow.db
+webserver_config.py
+
+# Docker local volumes and overrides
+postgres-data/
+docker-compose.override.yml
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

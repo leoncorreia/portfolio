@@ -1,4 +1,3 @@
-version: '3.8'
 x-airflow-common:
   &airflow-common
   image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.8.1-python3.10}
@@ -6,11 +5,23 @@ x-airflow-common:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-    _PIP_ADDITIONAL_REQUIREMENTS: "yfinance pandas" # Installs your Python packages
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW_CONN_POSTGRES_DEFAULT: postgresql://airflow:airflow@postgres:5432/airflow
+    PYTHONPATH: /opt/airflow/src
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: airflow
+    POSTGRES_USER: airflow
+    POSTGRES_PASSWORD: airflow
+    STOCK_SYMBOLS: ${STOCK_SYMBOLS:-AAPL,MSFT,NVDA}
+    _PIP_ADDITIONAL_REQUIREMENTS: "yfinance pandas psycopg2-binary"
   volumes:
     - ./dags:/opt/airflow/dags
-    - ./scripts:/opt/airflow/scripts
+    - ./src:/opt/airflow/src
+    - ./sql:/opt/airflow/sql
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
   depends_on:
     postgres:
       condition: service_healthy
@@ -34,8 +45,8 @@ services:
     command: version
     environment:
       <<: *airflow-common-env
-      _AIRFLOW_DB_UPGRADE: 'true'
-      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_DB_UPGRADE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
       _AIRFLOW_WWW_USER_USERNAME: admin
       _AIRFLOW_WWW_USER_PASSWORD: admin
 

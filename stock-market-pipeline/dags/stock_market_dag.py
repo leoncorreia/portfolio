@@ -1,51 +1,68 @@
+from datetime import datetime, timedelta
+
 from airflow import DAG
+from airflow.models import Variable
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
-from datetime import datetime, timedelta
-import sys
 
-# Add the scripts folder to the system path so Airflow can find your module
-sys.path.insert(0, '/opt/airflow/scripts')
-from fetch_data import fetch_and_store_stock_data
+from stock_pipeline.etl import run_extract_load_from_env
+from stock_pipeline.validation import validate_pipeline_outputs
+
+DEFAULT_SYMBOLS = "AAPL,MSFT,NVDA"
+
+
+def _resolve_symbols() -> list[str]:
+    symbols_value = Variable.get(
+        "stock_symbols",
+        default_var=DEFAULT_SYMBOLS,
+    )
+    return [symbol.strip().upper() for symbol in symbols_value.split(",") if symbol.strip()]
+
 
 default_args = {
-    'owner': 'data_engineer',
-    'retries': 1,
-    'retry_delay': timedelta(minutes=1),
+    "owner": "data_engineer",
+    "depends_on_past": False,
+    "retries": 2,
+    "retry_delay": timedelta(minutes=2),
 }
 
+
 with DAG(
-    'stock_market_microbatch',
+    dag_id="stock_market_microbatch",
     default_args=default_args,
-    description='Fetch stock data and generate analytics every 5 mins',
-    schedule_interval=timedelta(minutes=5),
+    description="Reliable 5-minute stock ETL + analytics pipeline",
     start_date=datetime(2026, 1, 1),
+    schedule="*/5 * * * *",
     catchup=False,
+    max_active_runs=1,
+    template_searchpath=["/opt/airflow"],
+    tags=["stocks", "etl", "microbatch", "postgres"],
 ) as dag:
-
-    # Task 1: Fetch and load data
-    fetch_data = PythonOperator(
-        task_id='fetch_AAPL_data',
-        python_callable=fetch_and_store_stock_data,
-        op_kwargs={'ticker_symbol': 'AAPL'}
+    create_schema = PostgresOperator(
+        task_id="create_schema",
+        postgres_conn_id="postgres_default",
+        sql="sql/schema.sql",
+        doc_md="Create core warehouse tables and indexes if missing.",
     )
 
-    # Task 2: Generate Analytics using PostgresOperator
-    generate_analytics = PostgresOperator(
-        task_id='calculate_moving_average',
-        postgres_conn_id='postgres_default', # We will configure this in the UI
-        sql="""
-            INSERT INTO stock_analytics (ticker, avg_price, max_price, calculation_time)
-            SELECT 
-                ticker,
-                AVG(price) as avg_price,
-                MAX(price) as max_price,
-                NOW() as calculation_time
-            FROM stock_prices
-            WHERE timestamp >= NOW() - INTERVAL '1 hour'
-            GROUP BY ticker;
-        """
+    extract_load_prices = PythonOperator(
+        task_id="extract_load_prices",
+        python_callable=run_extract_load_from_env,
+        op_kwargs={"symbols": _resolve_symbols()},
+        doc_md="Fetch minute bars from yfinance and upsert into stock_prices.",
     )
 
-    # Set execution order
-    fetch_data >> generate_analytics
+    compute_analytics = PostgresOperator(
+        task_id="compute_analytics",
+        postgres_conn_id="postgres_default",
+        sql="sql/analytics.sql",
+        doc_md="Compute deterministic rolling analytics into stock_analytics.",
+    )
+
+    validate_outputs = PythonOperator(
+        task_id="validate_outputs",
+        python_callable=validate_pipeline_outputs,
+        doc_md="Fail run if row counts, null checks, or duplicate checks fail.",
+    )
+
+    create_schema >> extract_load_prices >> compute_analytics >> validate_outputs
