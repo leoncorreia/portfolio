@@ -6,6 +6,7 @@ from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 
 from stock_pipeline.etl import run_extract_load_from_env
+from stock_pipeline.migrations import apply_sql_migrations
 from stock_pipeline.validation import validate_pipeline_outputs
 
 DEFAULT_SYMBOLS = "AAPL,MSFT,NVDA"
@@ -45,6 +46,12 @@ with DAG(
         doc_md="Create core warehouse tables and indexes if missing.",
     )
 
+    apply_migrations = PythonOperator(
+        task_id="apply_migrations",
+        python_callable=apply_sql_migrations,
+        doc_md="Apply versioned SQL migrations from sql/migrations.",
+    )
+
     extract_load_prices = PythonOperator(
         task_id="extract_load_prices",
         python_callable=run_extract_load_from_env,
@@ -65,4 +72,4 @@ with DAG(
         doc_md="Fail run if row counts, null checks, or duplicate checks fail.",
     )
 
-    create_schema >> extract_load_prices >> compute_analytics >> validate_outputs
+    create_schema >> apply_migrations >> extract_load_prices >> compute_analytics >> validate_outputs

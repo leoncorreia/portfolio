@@ -73,8 +73,6 @@ CREATE INDEX IF NOT EXISTS idx_stock_prices_symbol ON stock_prices (symbol);
 CREATE INDEX IF NOT EXISTS idx_stock_prices_timestamp ON stock_prices (timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_stock_prices_symbol_timestamp ON stock_prices (symbol, timestamp DESC);
 
-DROP TABLE IF EXISTS stock_analytics;
-
 CREATE TABLE IF NOT EXISTS stock_analytics (
     symbol VARCHAR(10) NOT NULL,
     window_end TIMESTAMPTZ NOT NULL,
@@ -86,6 +84,15 @@ CREATE TABLE IF NOT EXISTS stock_analytics (
     calculated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT pk_stock_analytics PRIMARY KEY (symbol, window_end)
 );
+
+ALTER TABLE stock_analytics ADD COLUMN IF NOT EXISTS symbol VARCHAR(10);
+ALTER TABLE stock_analytics ADD COLUMN IF NOT EXISTS window_end TIMESTAMPTZ;
+ALTER TABLE stock_analytics ADD COLUMN IF NOT EXISTS latest_price NUMERIC(14, 4);
+ALTER TABLE stock_analytics ADD COLUMN IF NOT EXISTS ma_5 NUMERIC(14, 4);
+ALTER TABLE stock_analytics ADD COLUMN IF NOT EXISTS ma_20 NUMERIC(14, 4);
+ALTER TABLE stock_analytics ADD COLUMN IF NOT EXISTS max_price_20 NUMERIC(14, 4);
+ALTER TABLE stock_analytics ADD COLUMN IF NOT EXISTS volume_5_period BIGINT;
+ALTER TABLE stock_analytics ADD COLUMN IF NOT EXISTS calculated_at TIMESTAMPTZ DEFAULT NOW();
 
 CREATE INDEX IF NOT EXISTS idx_stock_analytics_symbol ON stock_analytics (symbol);
 CREATE INDEX IF NOT EXISTS idx_stock_analytics_window_end ON stock_analytics (window_end DESC);

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 
 import psycopg2
 
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def validate_pipeline_outputs() -> None:
+    max_data_age_hours = int(os.getenv("MAX_DATA_AGE_HOURS", "72"))
     config = get_database_config()
     checks = {
         "stock_prices_has_rows": "SELECT COUNT(*) FROM stock_prices;",
@@ -26,6 +28,7 @@ def validate_pipeline_outputs() -> None:
             WHERE symbol IS NULL OR timestamp IS NULL OR price IS NULL OR volume IS NULL;
         """,
         "stock_analytics_has_rows": "SELECT COUNT(*) FROM stock_analytics;",
+        "latest_price_timestamp": "SELECT MAX(timestamp) FROM stock_prices;",
     }
 
     with psycopg2.connect(
@@ -49,6 +52,30 @@ def validate_pipeline_outputs() -> None:
         raise ValueError("Validation failed: null critical fields found in stock_prices.")
     if results["stock_analytics_has_rows"] <= 0:
         raise ValueError("Validation failed: stock_analytics table has no rows.")
+    if results["latest_price_timestamp"] is None:
+        raise ValueError("Validation failed: stock_prices has no maximum timestamp.")
 
-    logger.info("Validation checks passed: %s", results)
+    with psycopg2.connect(
+        host=config.host,
+        port=config.port,
+        dbname=config.dbname,
+        user=config.user,
+        password=config.password,
+    ) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT EXTRACT(EPOCH FROM (NOW() - MAX(timestamp))) / 3600.0
+                FROM stock_prices;
+                """
+            )
+            data_age_hours = float(cursor.fetchone()[0])
+
+    if data_age_hours > max_data_age_hours:
+        raise ValueError(
+            f"Validation failed: latest stock_prices record is stale ({data_age_hours:.2f}h old), "
+            f"max allowed is {max_data_age_hours}h."
+        )
+
+    logger.info("Validation checks passed: %s, data_age_hours=%.2f", results, data_age_hours)
 
